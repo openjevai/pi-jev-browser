@@ -2,11 +2,12 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { readConfig } from "../src/config.ts";
-import { readTypesafeCredentials } from "../src/credentials.ts";
+import { readTypesafeCredentials, readOpenjevCredentials } from "../src/credentials.ts";
 import type { RunStep } from "../src/jev-run.ts";
 import { createPiModelPolicy, type ModelCall } from "../src/pi-model.ts";
 import { JevBrowserManager, type RunResult } from "../src/runtime.ts";
 import { createTypesafePolicy } from "../src/typesafe.ts";
+import { createOpenjevPolicy } from "../src/openjev.ts";
 import type { BrowserAction } from "../src/types.ts";
 
 const STATUS_KEY = "jev-browser";
@@ -91,12 +92,18 @@ function modelCall(ctx: ExtensionContext): ModelCall {
 }
 
 function policyFor(ctx: ExtensionContext) {
-	return readConfig().policy === "typesafe"
-		? createTypesafePolicy({
-				...readTypesafeCredentials(),
-				text: modelCall(ctx),
-			})
-		: createPiModelPolicy(modelCall(ctx));
+	const policy = readConfig().policy;
+	if (policy === "typesafe")
+		return createTypesafePolicy({
+			...readTypesafeCredentials(),
+			text: modelCall(ctx),
+		});
+	if (policy === "openjev")
+		return createOpenjevPolicy({
+			...readOpenjevCredentials(),
+			text: modelCall(ctx),
+		});
+	return createPiModelPolicy(modelCall(ctx));
 }
 
 export default function (pi: ExtensionAPI) {
@@ -108,7 +115,7 @@ export default function (pi: ExtensionAPI) {
 		name: "jev_run",
 		label: "Jev Run",
 		description:
-			"Automatically start or reuse an isolated browser, capture before/after screenshots, and advance a narrowly scoped browser goal in a bounded fast DOM loop. Decisions come from the model pi has configured (policy 'pi', the default), or from Jev through the TypeSafe API when policy is 'typesafe' and TYPESAFE_API_KEY or typesafe.apiKey is set. Returns progress and stops on uncertainty, consequential actions, errors, or the step limit. The first call downloads Chromium if it is missing.",
+			"Automatically start or reuse an isolated browser, capture before/after screenshots, and advance a narrowly scoped browser goal in a bounded fast DOM loop. Decisions come from the model pi has configured (policy 'pi', the default), from Jev through the TypeSafe API when policy is 'typesafe' and TYPESAFE_API_KEY or typesafe.apiKey is set, or from Jev through the OpenJEV gateway when policy is 'openjev' and OPENJEV_API_KEY or openjev.apiKey is set. Returns progress and stops on uncertainty, consequential actions, errors, or the step limit. The first call downloads Chromium if it is missing.",
 		promptSnippet:
 			"Advance a browser goal automatically with Jev, returning before/after screenshots and a decision trace",
 		promptGuidelines: [

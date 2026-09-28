@@ -358,12 +358,12 @@ function throttleMessage(
 ) {
 	return category === "rate_limited"
 		? `TypeSafe rate-limited the decision during ${stage} (HTTP 429); no action was taken for the step being decided. Every step costs one request, so a long run can reach the limit. Wait before retrying.`
-		: `TypeSafe was temporarily overloaded during ${stage} (HTTP 529); no action was taken for the step being decided. Wait before retrying.`;
+		: `The provider was temporarily overloaded during ${stage} (HTTP 503 or 529); no action was taken for the step being decided. Wait before retrying.`;
 }
 
 /**
  * TypeSafe documents 429 (rate limit) and 529 (overloaded) with the same
- * remedy: back off and retry. Report them as their own categories so the caller
+ * remedy: back off and retry. OpenJEV may also return 503. Report them as their own categories so the caller
  * waits instead of debugging, and never retry here: retrying inside the loop
  * would spend the step budget on requests that keep failing.
  */
@@ -374,6 +374,6 @@ export function throttleCategory(
 		?.statusCode;
 	const message = error instanceof Error ? error.message : "";
 	if (status === 429 || /rate[- _]?limit/i.test(message)) return "rate_limited";
-	if (status === 529 || /overload/i.test(message)) return "overloaded";
+	if (status === 503 || status === 529 || /overload/i.test(message)) return "overloaded";
 	return undefined;
 }

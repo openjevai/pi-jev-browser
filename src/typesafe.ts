@@ -75,16 +75,18 @@ function describe(value: unknown) {
  * text, so field values still come from a model — the one pi has configured. */
 export function createTypesafePolicy(options: {
 	apiKey: string;
+	endpoint?: string;
 	model?: string;
 	text: ModelCall;
 	fetchImpl?: typeof fetch;
 }): JevPolicy {
 	const model = options.model ?? DEFAULT_TYPESAFE_MODEL;
+	const endpoint = options.endpoint ?? TYPESAFE_ENDPOINT;
 	const request = options.fetchImpl ?? fetch;
 	return {
 		async choose(observation, goal, history, signal): Promise<Decision> {
 			const questions = buildQuestions(observation, goal);
-			const response = await request(TYPESAFE_ENDPOINT, {
+			const response = await request(endpoint, {
 				method: "POST",
 				headers: {
 					authorization: `Bearer ${options.apiKey}`,

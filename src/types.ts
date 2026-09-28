@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, Page, Video } from "playwright";
 
-export type PolicyName = "pi" | "typesafe";
+export type PolicyName = "pi" | "typesafe" | "openjev";
 
 export interface JevBrowserConfig {
 	policy: PolicyName;

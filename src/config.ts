@@ -61,7 +61,7 @@ export function readConfig(path = CONFIG_PATH): JevBrowserConfig {
 		: DEFAULT_CONFIG.allowedOrigins;
 
 	return {
-		policy: raw.policy === "typesafe" ? "typesafe" : DEFAULT_CONFIG.policy,
+		policy: raw.policy === "typesafe" ? "typesafe" : raw.policy === "openjev" ? "openjev" : DEFAULT_CONFIG.policy,
 		allowedOrigins,
 		headless: raw.headless !== false,
 		recordVideo: raw.recordVideo !== false,

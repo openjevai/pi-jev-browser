@@ -2,6 +2,8 @@
 
 An isolated Playwright Chromium browser for pi, driven by [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) — TypeSafe AI's System One model — called directly through the TypeSafe API, or by the model pi already has configured.
 
+> **OpenJEV support:** Jev is built by [TypeSafe](https://typesafe.ai). This fork keeps TypeSafe as the default and adds optional support for [OpenJEV](https://openjev.sh), a free community gateway to the same Jev model — set `OPENJEV_API_KEY` (or `JEV_PROVIDER=openjev`) to use it. Original project: https://github.com/yibie/pi-jev-browser by @yibie.
+
 > **Ported from Cline.** This package is a port of [`cline/plugins` → `plugins/jev-browser`](https://github.com/cline/plugins/tree/main/plugins/jev-browser) (v0.2.2, by Bee / Cline Bot Inc., Apache-2.0) to the pi extension API. The observation layer, decision loop, action executor, configuration, live stream, recording overlay, and browser setup are upstream code, largely unchanged. The host adapter, the direct TypeSafe transport in place of Vercel AI Gateway, and the `pi` decision policy are new. See [Porting notes](#porting-notes) for the full list.
 
 Jev does not see screenshots. The plugin hands it a structured DOM observation and one multiple-choice question per step, and Jev answers with a concrete operation plus a probability distribution over the offered options. That removes the screenshot round trip and the reasoning round trip from every browser step.
@@ -18,6 +20,7 @@ Each step offers the same enumerated choices — every concrete action compared 
 | --- | --- | --- | --- |
 | `pi` (default) | The model pi has configured | Nothing extra | `probability` is whatever the model claims, and completion discipline follows that model |
 | `typesafe` | [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) via the TypeSafe API | `TYPESAFE_API_KEY` or `typesafe.apiKey` | Better at checking that a requirement is really visible before declaring done; every step is one TypeSafe request |
+| `openjev` | [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) via the [OpenJEV](https://openjev.sh) gateway | `OPENJEV_API_KEY` or `openjev.apiKey` | Same Jev model, free community gateway; every step is one OpenJEV request |
 
 `pi` is the default because it works with no second credential and no extra API quota. Its weakness is the mirror image: measured on one goal (open a category, then a detail page, stop when the UPC and availability are visible), both `deepseek-flash` and `deepseek-v4-pro` declared `DONE` after two clicks without ever scrolling to the Product Information table, where Jev scrolled twice and then stopped. Clarifying the `DONE` criterion did not change that. What kept the outcome honest was the evidence: `done_unverified` plus a viewport-scoped page text let the calling agent see that the UPC had never been read, and it said so instead of reporting success.
 
@@ -49,7 +52,7 @@ cp pi-jev-browser.config.example.json ~/.pi/agent/pi-jev-browser.config.json
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `policy` | `"pi"` | `pi` uses the model pi has configured; `typesafe` calls the TypeSafe API directly. See [Decision policies](#decision-policies). |
+| `policy` | `"pi"` | `pi` uses the model pi has configured; `typesafe` calls the TypeSafe API directly; `openjev` calls the OpenJEV gateway directly. See [Decision policies](#decision-policies). |
 | `allowedOrigins` | `["http://*", "https://*"]` | `*` wildcards, matched against the origin. Narrow this for sensitive work. |
 | `headless` | `true` | On macOS a rejected headless launch falls back to a visible window. |
 | `recordVideo` | `true` | Finalized by `jev_stop`. |
@@ -59,10 +62,12 @@ cp pi-jev-browser.config.example.json ~/.pi/agent/pi-jev-browser.config.json
 | `stream` | `{enabled:false, intervalMs:1000}` | `jev_stream` can start it on demand. |
 | `typesafe.apiKey` | — | Used when `TYPESAFE_API_KEY` is not set. |
 | `typesafe.model` | `jev-latest` | TypeSafe model alias for the decision step. |
+| `openjev.apiKey` | — | Used when `OPENJEV_API_KEY` is not set. Policy `openjev` only. |
+| `openjev.model` | `openjev` | OpenJEV model alias for the decision step. Policy `openjev` only. |
 
-Credentials resolve in this order: `TYPESAFE_API_KEY`, then `typesafe.apiKey`; `TYPESAFE_MODEL`, then `typesafe.model`. `PI_JEV_BROWSER_CONFIG` overrides the config path. Credentials are read on every run, never written into the browser's environment, and never returned in tool results. Both settings apply to policy `typesafe` only; policy `pi` resolves its model through pi's own provider configuration. Field values are always filled by pi's configured model, because Jev generates no text.
+Credentials resolve in this order: `TYPESAFE_API_KEY`, then `typesafe.apiKey`; `TYPESAFE_MODEL`, then `typesafe.model`. For policy `openjev`: `OPENJEV_API_KEY`, then `openjev.apiKey`; `OPENJEV_MODEL`, then `openjev.model`. `PI_JEV_BROWSER_CONFIG` overrides the config path. Credentials are read on every run, never written into the browser's environment, and never returned in tool results. All settings apply to policy `typesafe` or `openjev` only; policy `pi` resolves its model through pi's own provider configuration. Field values are always filled by pi's configured model, because Jev generates no text.
 
-With policy `typesafe`, **every step costs one request**, so a 20-step run makes up to 20 of them. TypeSafe documents `429 Too Many Requests` and `529 Overloaded` as back-off-and-retry. The loop does not retry: retrying inside the loop would spend the step budget on requests that keep failing. Those responses end the run as `interrupted` with failure category `rate_limited` or `overloaded`, take no action for the step being decided, and tell the caller to wait.
+With policy `typesafe` or `openjev`, **every step costs one request**, so a 20-step run makes up to 20 of them. TypeSafe documents `429 Too Many Requests` and `529 Overloaded` as back-off-and-retry; OpenJEV may also return `503`. The loop does not retry: retrying inside the loop would spend the step budget on requests that keep failing. Those responses end the run as `interrupted` with failure category `rate_limited` or `overloaded`, take no action for the step being decided, and tell the caller to wait.
 
 ## Tools
 

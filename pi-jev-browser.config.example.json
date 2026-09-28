@@ -19,5 +19,9 @@
   "typesafe": {
     "apiKey": "",
     "model": "jev-latest"
+  },
+  "openjev": {
+    "apiKey": "",
+    "model": "openjev"
   }
 }
